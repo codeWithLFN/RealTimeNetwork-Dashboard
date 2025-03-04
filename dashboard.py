@@ -153,14 +153,7 @@ def create_visualizations(df: pd.DataFrame):
             )
             st.plotly_chart(fig_map, use_container_width=True)
 
-# Function to resolve hostnames
-def resolve_hostname(hostname: str) -> Optional[str]:
-    """Resolve a hostname to an IP address"""
-    try:
-        return socket.gethostbyname(hostname)
-    except socket.gaierror as e:
-        logger.error(f"Error resolving hostname {hostname}: {str(e)}")
-        return None
+
 
 # capture packets
 def start_packet_capture():
