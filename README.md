@@ -33,13 +33,11 @@ sudo streamlit run dashboard.py
 - **Python**: The core language for the application.
 - **Streamlit**: For building the interactive web interface.
 
-## 📄 License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
 ## 🙌 Contributing
 
-We welcome contributions! Please read our [Contributing Guidelines](CONTRIBUTING.md) for more details.
+We welcome contributions! 
 
 ---
 
