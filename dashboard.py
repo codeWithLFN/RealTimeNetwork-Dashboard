@@ -11,6 +11,8 @@ import warnings
 import logging
 from typing import Dict, List, Optional
 import socket
+from geopy.geocoders import Nominatim
+from scapy.layers.inet import IP, TCP, UDP
 
 # Configure logging
 logging.basicConfig(
@@ -33,10 +35,22 @@ class PacketProcessor:
         self.start_time = datetime.now()
         self.packet_count = 0
         self.lock = threading.Lock()
+        self.geolocator = Nominatim(user_agent="network_dashboard")
+        self.alerts = []
 
     def get_protocol_name(self, protocol_num: int) -> str:
         """Convert protocol number to name"""
         return self.protocol_map.get(protocol_num, f'OTHER({protocol_num})')
+
+    def add_alert(self, condition: callable, message: str):
+        """Add a custom alert"""
+        self.alerts.append((condition, message))
+
+    def check_alerts(self, packet_info: dict):
+        """Check and trigger alerts"""
+        for condition, message in self.alerts:
+            if condition(packet_info):
+                st.warning(f"Alert: {message}")
 
     def process_packet(self, packet) -> None:
         """Process a single packet and extract relevant information"""
@@ -66,6 +80,18 @@ class PacketProcessor:
                             'src_port': packet[UDP].sport,
                             'dst_port': packet[UDP].dport
                         })
+
+                    # Geographical mapping
+                    try:
+                        location = self.geolocator.geocode(packet[IP].src)
+                        if location:
+                            packet_info['latitude'] = location.latitude
+                            packet_info['longitude'] = location.longitude
+                    except Exception as e:
+                        logger.error(f"Error in geolocation: {str(e)}")
+
+                    # Check alerts
+                    self.check_alerts(packet_info)
 
                     self.packet_data.append(packet_info)
                     self.packet_count += 1
@@ -114,6 +140,19 @@ def create_visualizations(df: pd.DataFrame):
         )
         st.plotly_chart(fig_sources, use_container_width=True)
 
+        # Geographical mapping
+        if 'latitude' in df.columns and 'longitude' in df.columns:
+            fig_map = px.scatter_mapbox(
+                df,
+                lat='latitude',
+                lon='longitude',
+                hover_name='source',
+                hover_data=['destination', 'protocol', 'size'],
+                title="Geographical IP Mapping",
+                mapbox_style="carto-positron"
+            )
+            st.plotly_chart(fig_map, use_container_width=True)
+
 # capture packets
 def start_packet_capture():
     """Start packet capture in a separate thread"""
@@ -161,6 +200,18 @@ def main():
             df.tail(10)[['timestamp', 'source', 'destination', 'protocol', 'size']],
             use_container_width=True
         )
+
+    # Add custom alerts
+    st.session_state.processor.add_alert(
+        lambda pkt: pkt['protocol'] == 'TCP' and pkt['size'] > 1000,
+        "Large TCP packet detected"
+    )
+
+    # Add packet payload analysis option
+    st.subheader("Packet Payload Analysis")
+    if len(df) > 0:
+        packet_index = st.number_input("Select packet index", min_value=0, max_value=len(df)-1, step=1)
+        st.text_area("Payload", str(df.iloc[packet_index]))
 
     # Add refresh button
     if st.button('Refresh Data'):
