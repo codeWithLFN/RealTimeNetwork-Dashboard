@@ -153,6 +153,15 @@ def create_visualizations(df: pd.DataFrame):
             )
             st.plotly_chart(fig_map, use_container_width=True)
 
+# Function to resolve hostnames
+def resolve_hostname(hostname: str) -> Optional[str]:
+    """Resolve a hostname to an IP address"""
+    try:
+        return socket.gethostbyname(hostname)
+    except socket.gaierror as e:
+        logger.error(f"Error resolving hostname {hostname}: {str(e)}")
+        return None
+
 # capture packets
 def start_packet_capture():
     """Start packet capture in a separate thread"""
@@ -213,6 +222,16 @@ def main():
         packet_index = st.number_input("Select packet index", min_value=0, max_value=len(df)-1, step=1)
         st.text_area("Payload", str(df.iloc[packet_index]))
 
+    # Add hostname resolution
+    st.subheader("Hostname Resolution")
+    hostname = st.text_input("Enter hostname to resolve")
+    if hostname:
+        resolved_ip = resolve_hostname(hostname)
+        if resolved_ip:
+            st.write(f"Resolved IP: {resolved_ip}")
+        else:
+            st.write("Could not resolve hostname")
+
     # Add refresh button
     if st.button('Refresh Data'):
         st.rerun()
@@ -220,3 +239,6 @@ def main():
     # Auto refresh
     time.sleep(2)
     st.rerun()
+
+if __name__ == "__main__":
+    main()
